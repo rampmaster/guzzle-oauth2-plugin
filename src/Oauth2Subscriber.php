@@ -25,7 +25,7 @@ class Oauth2Subscriber implements SubscriberInterface
     /**
      * Create a new Oauth2 subscriber.
      *
-     * @param GrantTypeInterface $grantType
+     * @param GrantTypeInterface             $grantType
      * @param RefreshTokenGrantTypeInterface $refreshTokenGrantType
      */
     public function __construct(GrantTypeInterface $grantType = null, RefreshTokenGrantTypeInterface $refreshTokenGrantType = null)
@@ -40,8 +40,8 @@ class Oauth2Subscriber implements SubscriberInterface
     public function getEvents()
     {
         return [
-          'before' => ['onBefore', RequestEvents::SIGN_REQUEST],
-          'error' => ['onError', RequestEvents::EARLY],
+            'before' => ['onBefore', RequestEvents::SIGN_REQUEST],
+            'error' => ['onError', RequestEvents::EARLY],
         ];
     }
 
@@ -53,9 +53,10 @@ class Oauth2Subscriber implements SubscriberInterface
         $response = $event->getResponse();
         if ($response && 401 == $response->getStatusCode()) {
             $request = $event->getRequest();
-            if (!$request->getConfig()->get('retried')) {
+            if ($request->getConfig()->get('auth') == 'oauth2' && !$request->getConfig()->get('retried')) {
                 if ($token = $this->acquireAccessToken()) {
                     $this->accessToken = $token;
+                    $this->refreshToken = $token->getRefreshToken();
                     $request->getConfig()->set('retried', true);
                     $event->intercept($event->getClient()->send($request));
                 }
@@ -77,7 +78,9 @@ class Oauth2Subscriber implements SubscriberInterface
             if ($this->refreshToken) {
                 $this->refreshTokenGrantType->setRefreshToken($this->refreshToken->getToken());
             }
-            $accessToken = $this->refreshTokenGrantType->getToken();
+            if ($this->refreshTokenGrantType->hasRefreshToken()) {
+                $accessToken = $this->refreshTokenGrantType->getToken();
+            }
         }
 
         if (!$accessToken && $this->grantType) {
@@ -98,7 +101,9 @@ class Oauth2Subscriber implements SubscriberInterface
         $request = $event->getRequest();
         if ($request->getConfig()->get('auth') == 'oauth2') {
             $token = $this->getAccessToken();
-            $request->setHeader('Authorization', 'Bearer ' . $token->getToken());
+            if ($token !== null) {
+                $request->setHeader('Authorization', 'Bearer ' . $token->getToken());
+            }
         }
     }
 
@@ -118,7 +123,7 @@ class Oauth2Subscriber implements SubscriberInterface
             // Try to acquire a new access token from the server.
             $this->accessToken = $this->acquireAccessToken();
             if ($this->accessToken) {
-                $this->refreshToken = $this->accessToken->getRefreshToken() ?: null;
+                $this->refreshToken = $this->accessToken->getRefreshToken();
             }
         }
 
@@ -139,8 +144,8 @@ class Oauth2Subscriber implements SubscriberInterface
      * Set the access token.
      *
      * @param AccessToken|string $accessToken
-     * @param string $type
-     * @param int $expires
+     * @param string             $type
+     * @param int                $expires
      */
     public function setAccessToken($accessToken, $type = null, $expires = null)
     {
@@ -150,6 +155,7 @@ class Oauth2Subscriber implements SubscriberInterface
             throw new \InvalidArgumentException('Invalid access token');
         }
         $this->accessToken = $accessToken;
+        $this->refreshToken = $accessToken->getRefreshToken();
     }
 
     /**

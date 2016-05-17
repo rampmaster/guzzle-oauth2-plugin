@@ -1,11 +1,14 @@
 guzzle-oauth2-plugin
 ====================
 
-Provides an OAuth2 plugin for [Guzzle](http://guzzlephp.org/).
+Provides an OAuth2 plugin (subscriber) for [Guzzle](http://guzzlephp.org/).
 
-The `master` branch is intended for Guzzle 5:
+[![Build Status](https://travis-ci.org/commerceguys/guzzle-oauth2-plugin.svg)](https://travis-ci.org/commerceguys/guzzle-oauth2-plugin)
+[![Code Coverage](https://scrutinizer-ci.com/g/commerceguys/guzzle-oauth2-plugin/badges/coverage.png?b=master)](https://scrutinizer-ci.com/g/commerceguys/guzzle-oauth2-plugin/?branch=master)
+
+Version 2.x (on the `master` branch) is intended for Guzzle 5:
 ```json
-        "commerceguys/guzzle-oauth2-plugin": "dev-master"
+        "commerceguys/guzzle-oauth2-plugin": "~2.0"
 ```
 
 Guzzle 3 compatibility continues in the [`1.0`](https://github.com/commerceguys/guzzle-oauth2-plugin/tree/1.0) branch:
@@ -19,6 +22,10 @@ Guzzle 3 compatibility continues in the [`1.0`](https://github.com/commerceguys/
   user credentials, refresh token). Or you can set an access token yourself.
 - Supports refresh tokens (stores them and uses them to get new access tokens).
 - Handles token expiration (acquires new tokens and retries failed requests).
+
+## Running the tests
+
+First make sure you have all the dependencies in place by running `composer install --prefer-dist`, then simply run `./bin/phpunit`.
 
 ## Example
 ```php
@@ -50,12 +57,11 @@ $client = new Client([
     ],
 ]);
 
-/** @var \GuzzleHttp\Message\Response */
 $response = $client->get('https://example.com/api/user/me');
 
 print_r($response->json());
 
-// Use $oauth2->getAccessToken(); to get a token that can be persisted for
-// subsequent requests.
+// Use $oauth2->getAccessToken(); and $oauth2->getRefreshToken() to get tokens
+// that can be persisted for subsequent requests.
 
 ```

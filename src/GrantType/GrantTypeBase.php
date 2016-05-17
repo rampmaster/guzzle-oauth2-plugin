@@ -3,8 +3,8 @@
 namespace CommerceGuys\Guzzle\Oauth2\GrantType;
 
 use CommerceGuys\Guzzle\Oauth2\AccessToken;
-use GuzzleHttp\Collection;
 use GuzzleHttp\ClientInterface;
+use GuzzleHttp\Collection;
 
 abstract class GrantTypeBase implements GrantTypeInterface
 {
@@ -17,12 +17,6 @@ abstract class GrantTypeBase implements GrantTypeInterface
     /** @var string */
     protected $grantType = '';
 
-    /** @var array */
-    protected $defaults = ['client_secret' => '', 'scope' => '', 'token_url' => 'oauth2/token'];
-
-    /** @var array */
-    protected $required = ['client_id'];
-
     /**
      * @param ClientInterface $client
      * @param array           $config
@@ -30,7 +24,42 @@ abstract class GrantTypeBase implements GrantTypeInterface
     public function __construct(ClientInterface $client, array $config = [])
     {
         $this->client = $client;
-        $this->config = Collection::fromConfig($config, $this->defaults, $this->required);
+        $this->config = Collection::fromConfig($config, $this->getDefaults(), $this->getRequired());
+    }
+
+    /**
+     * Get default configuration items.
+     *
+     * @return array
+     */
+    protected function getDefaults()
+    {
+        return [
+            'client_secret' => '',
+            'scope' => '',
+            'token_url' => 'oauth2/token',
+            'auth_location' => 'headers',
+        ];
+    }
+
+    /**
+     * Get required configuration items.
+     *
+     * @return string[]
+     */
+    protected function getRequired()
+    {
+        return ['client_id'];
+    }
+
+    /**
+     * Get additional options, if any.
+     *
+     * @return array|null
+     */
+    protected function getAdditionalOptions()
+    {
+        return null;
     }
 
     /**
@@ -38,13 +67,26 @@ abstract class GrantTypeBase implements GrantTypeInterface
      */
     public function getToken()
     {
-        $body = $this->config->toArray();
+        $config = $this->config->toArray();
+
+        $body = $config;
         $body['grant_type'] = $this->grantType;
+        unset($body['token_url'], $body['auth_location']);
 
-        $access_token_url = $body['token_url'];
-        unset($body['token_url']);
+        $requestOptions = [];
 
-        $response = $this->client->post($access_token_url, ['body' => $body]);
+        if ($config['auth_location'] !== 'body') {
+            $requestOptions['auth'] = [$config['client_id'], $config['client_secret']];
+            unset($body['client_id'], $body['client_secret']);
+        }
+
+        $requestOptions['body'] = $body;
+
+        if ($additionalOptions = $this->getAdditionalOptions()) {
+            $requestOptions = array_merge_recursive($requestOptions, $additionalOptions);
+        }
+
+        $response = $this->client->post($config['token_url'], $requestOptions);
         $data = $response->json();
 
         return new AccessToken($data['access_token'], $data['token_type'], $data);
